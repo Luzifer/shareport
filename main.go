@@ -16,22 +16,24 @@ import (
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/crypto/ssh"
 
+	"github.com/Luzifer/go_helpers/v2/env"
 	"github.com/Luzifer/rconfig/v2"
 )
 
 var (
 	cfg = struct {
-		DebugRemote          bool   `flag:"debug-remote" default:"false" description:"Send remote stderr local terminal"`
-		IdentityFile         string `flag:"identity-file,i" vardefault:"ssh_key" description:"Identity file to use for connecting to the remote"`
-		IdentityFilePassword string `flag:"identity-file-password" default:"" description:"Password for the identity file"`
-		LocalAddr            string `flag:"local-addr,l" default:"" description:"Local address / port to forward" validate:"nonzero"`
-		LogLevel             string `flag:"log-level" default:"info" description:"Log level (debug, info, warn, error, fatal)"`
-		RemoteHost           string `flag:"remote-host" default:"" description:"Remote host and port in format host:port" validate:"nonzero"`
-		RemoteCommand        string `flag:"remote-command" default:"" description:"Remote command to execute after connect"`
-		RemoteListen         string `flag:"remote-listen" default:"localhost:0" description:"Address to listen on remote (port is available in script)"`
-		RemoteScript         string `flag:"remote-script" default:"" description:"Bash script to push and execute (overwrites remote-command)"`
-		RemoteUser           string `flag:"remote-user" vardefault:"remote_user" description:"User to use to connect to remote host"`
-		VersionAndExit       bool   `flag:"version" default:"false" description:"Prints current version and exits"`
+		DebugRemote          bool     `flag:"debug-remote" default:"false" description:"Send remote stderr local terminal"`
+		IdentityFile         string   `flag:"identity-file,i" vardefault:"ssh_key" description:"Identity file to use for connecting to the remote"`
+		IdentityFilePassword string   `flag:"identity-file-password" default:"" description:"Password for the identity file"`
+		LocalAddr            string   `flag:"local-addr,l" default:"" description:"Local address / port to forward" validate:"nonzero"`
+		LogLevel             string   `flag:"log-level" default:"info" description:"Log level (debug, info, warn, error, fatal)"`
+		RemoteHost           string   `flag:"remote-host" default:"" description:"Remote host and port in format host:port" validate:"nonzero"`
+		RemoteCommand        string   `flag:"remote-command" default:"" description:"Remote command to execute after connect"`
+		RemoteListen         string   `flag:"remote-listen" default:"localhost:0" description:"Address to listen on remote (port is available in script)"`
+		RemoteScript         string   `flag:"remote-script" default:"" description:"Bash script to push and execute (overwrites remote-command)"`
+		RemoteUser           string   `flag:"remote-user" vardefault:"remote_user" description:"User to use to connect to remote host"`
+		Vars                 []string `flag:"var,v" default:"" description:"Environment variables to pass to the script (Format VAR=value)"`
+		VersionAndExit       bool     `flag:"version" default:"false" description:"Prints current version and exits"`
 	}{}
 
 	running = true
@@ -167,10 +169,11 @@ func main() {
 	}
 	defer session.Close()
 
-	for k, v := range map[string]string{
-		"PORT":   port,
-		"LISTEN": remoteListener.Addr().String(),
-	} {
+	envVars := env.ListToMap(cfg.Vars)
+	envVars["PORT"] = port
+	envVars["LISTEN"] = remoteListener.Addr().String()
+
+	for k, v := range envVars {
 		fmt.Fprintf(scriptIn, "export %s=%q\n", k, v)
 	}
 
