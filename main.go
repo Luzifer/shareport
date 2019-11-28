@@ -121,8 +121,10 @@ func main() {
 	}
 
 	config := &ssh.ClientConfig{
-		User:            cfg.RemoteUser,
-		Auth:            []ssh.AuthMethod{privateKey},
+		User: cfg.RemoteUser,
+		Auth: []ssh.AuthMethod{privateKey},
+
+		//#nosec G106 // For now no validation is supported
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 	}
 
@@ -212,15 +214,14 @@ func main() {
 		sigC <- syscall.SIGINT
 	}()
 
-	for {
-		select {
-		case <-sigC:
-			log.Info("Signal triggered, shutting down")
-			if err := session.Signal(ssh.SIGHUP); err != nil {
-				log.WithError(err).Error("Unable to send TERM signal to remote process")
-			}
-			running = false
-			return
-		}
+	// Wait for signal to occur
+	<-sigC
+
+	// Do a proper teardown
+	log.Info("Signal triggered, shutting down")
+	running = false
+
+	if err := session.Signal(ssh.SIGHUP); err != nil {
+		log.WithError(err).Error("Unable to send TERM signal to remote process")
 	}
 }
